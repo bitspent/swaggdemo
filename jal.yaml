@@ -1,0 +1,1055 @@
+openapi: 3.0.0
+info:
+  title: TME
+  description: |-
+    **TME API**
+
+    TRON Wallets Management APIs allows registered Clients ability to:
+
+    - CRUD wallets APIs
+    - Send and Receive TRX or USDT
+    - Backend to Backend Callbacks Deposit APIs Notifications
+  version: 1.0.0
+servers:
+  - url: http://{{host}}
+components:
+  securitySchemes:
+    noauthAuth:
+      type: http
+      scheme: noauth
+    bearerAuth:
+      type: http
+      scheme: bearer
+tags:
+  - name: Authentication
+    description: |-
+      API authentication to get only one session active per Clients:
+
+      - One Portal Session (isAPI: false)
+      - One Backend Session (isAPI true)
+
+
+      Upon Valid Authentication, **{jwt_token}** is returned
+
+      All APIs Requests Headers should include then:
+
+      **Authorization: Bearen {jwt_token}**
+  - name: Wallets
+    description: |-
+      - Create Wallet:
+          - each wallet have a unique auto generated uuid
+          - a tag can be assigned for one or more wallet(s)
+      - Update Wallet:
+          - wallet tag can be changed
+      - View Wallet:
+          - Fetch Wallet By uuid
+      - Search Wallets
+          - Filter Wallets by uuid
+          - Search By Or Filter: address, tag, uuid
+  - name: Withdrawals
+    description: |-
+      Using a specific owned wallet (uuid), send TRX or USDT:
+
+      - Preview Withdrawal Fees ( bandwidth, energy and TRX total fees )
+      - Confirm Withdrawal: transaction is broadcasted to the Tron Network
+  - name: Withdrawals > Send TRON
+    description: Preview Fees and Confirm Send TRX Transaction APIs
+  - name: Withdrawals > Send USDT
+    description: Similar to **Send TRON** sections
+  - name: Transactions
+    description: Transactions Searches over wallets, addresses and types
+  - name: Callback
+    description: >-
+      This APIs is Called By TME when a deposit happens on the Client's Wallet
+      Integration Endpoints
+
+
+      Use the **PRESHARED_KEY** to verify integrity of the callback data:
+
+
+      - **HMAC256**( JSON.stringify(**payload**), **PRESHARED_KEY** )
+paths:
+  /client/authenticate:
+    post:
+      tags:
+        - Authentication
+      summary: Authenticate
+      description: >-
+        Get Authorization Token:
+
+
+        - Set **isAPI** to **true** for your backend connections
+
+        - Set **isAPI** to **false** for your Portal login
+
+
+        Valid Authentication with return **JWT access_token** under
+        `response.success.data.access_token`
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              example:
+                username: bitcoinly
+                secretKey: dcdcdfac-65a3-4de3-9aea-bd300f0fe34e
+                isAPI: true
+      security:
+        - noauthAuth: []
+      responses:
+        '200':
+          description: OK
+          headers:
+            Server:
+              schema:
+                type: string
+                example: Cowboy
+            Connection:
+              schema:
+                type: string
+                example: keep-alive
+            Vary:
+              schema:
+                type: string
+                example: Origin
+            Content-Type:
+              schema:
+                type: string
+                example: application/json; charset=utf-8
+            Content-Length:
+              schema:
+                type: integer
+                example: '611'
+            Date:
+              schema:
+                type: string
+                example: Sat, 03 Jun 2023 20:50:02 GMT
+            Via:
+              schema:
+                type: string
+                example: 1.1 vegur
+          content:
+            application/json:
+              schema:
+                type: object
+              examples:
+                example-0:
+                  summary: Authenticate-Portal
+                  value:
+                    success:
+                      message: authenticated
+                      data:
+                        success: true
+                        expiresAt: 1717361402054
+                        user:
+                          username: bitcoinly
+                          scopes:
+                            - tme_client
+                            - tme_default
+                          isAPI: false
+                        ticket: 6c56a301bd4c320db5ac3f313dd816aa
+                        access_token: >-
+                          eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWNjZXNzIjp0cnVlLCJleHBpcmVzQXQiOjE3MTczNjE0MDIwNTQsInVzZXIiOnsidXNlcm5hbWUiOiJiaXRjb2lubHkiLCJzY29wZXMiOlsidG1lX2NsaWVudCIsInRtZV9kZWZhdWx0Il0sImlzQVBJIjpmYWxzZX0sInRpY2tldCI6IjZjNTZhMzAxYmQ0YzMyMGRiNWFjM2YzMTNkZDgxNmFhIiwiaWF0IjoxNjg1ODI1NDAyfQ.D8MxJt6Rd7G7BhnX6iknGLhIVrFBQmRcRhGMRYgeS5I
+                    ref: db64a5dc-9c09-4886-8500-6c3f8a446b4e
+                example-1:
+                  summary: Authenticate-API
+                  value:
+                    success:
+                      message: authenticated
+                      data:
+                        success: true
+                        expiresAt: 1772225467224
+                        user:
+                          username: bitcoinly
+                          scopes:
+                            - tme_client
+                            - tme_default
+                          isAPI: true
+                        ticket: 26b6253df17906cdc9c071d2f48721f7
+                        access_token: >-
+                          eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWNjZXNzIjp0cnVlLCJleHBpcmVzQXQiOjE3NzIyMjU0NjcyMjQsInVzZXIiOnsidXNlcm5hbWUiOiJiaXRjb2lubHkiLCJzY29wZXMiOlsidG1lX2NsaWVudCIsInRtZV9kZWZhdWx0Il0sImlzQVBJIjp0cnVlfSwidGlja2V0IjoiMjZiNjI1M2RmMTc5MDZjZGM5YzA3MWQyZjQ4NzIxZjciLCJpYXQiOjE2ODU4MjU0Njd9.vlDjRuKD8i4YTH6rWOaI6KZB7Fa1B2x0mw3NBBt9sPs
+                    ref: d82158ce-6d0d-4aec-b538-cdbeea0e9fef
+  /client/wallets/save:
+    post:
+      tags:
+        - Wallets
+      summary: Update Wallet Tag
+      description: |-
+        Changes the selected wallet (uuid) tag to a new tag.
+
+        Tag is not unique, and can be assigned to another wallet(s)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              example:
+                tag: main
+                wallet: 46483305-a5be-45e2-9038-4a23e029a757
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          headers:
+            Server:
+              schema:
+                type: string
+                example: Cowboy
+            Connection:
+              schema:
+                type: string
+                example: keep-alive
+            Vary:
+              schema:
+                type: string
+                example: Origin
+            Content-Type:
+              schema:
+                type: string
+                example: application/json; charset=utf-8
+            Content-Length:
+              schema:
+                type: integer
+                example: '151'
+            Date:
+              schema:
+                type: string
+                example: Sat, 03 Jun 2023 20:55:38 GMT
+            Via:
+              schema:
+                type: string
+                example: 1.1 vegur
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                success:
+                  message: wallet saved
+                  data:
+                    uuid: 46483305-a5be-45e2-9038-4a23e029a757
+                    tag: main
+                ref: 32b9dce4-8348-4ae2-8014-c6e5600d5ab5
+  /client/wallets/view:
+    post:
+      tags:
+        - Wallets
+      summary: View Wallet
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              example:
+                wallet: 78917866-8362-494b-b4fd-bd58eb015241
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          headers:
+            vary:
+              schema:
+                type: string
+                example: Origin
+            content-type:
+              schema:
+                type: string
+                example: application/json; charset=utf-8
+            content-length:
+              schema:
+                type: integer
+                example: '351'
+            Date:
+              schema:
+                type: string
+                example: Sat, 22 Apr 2023 23:32:40 GMT
+            Connection:
+              schema:
+                type: string
+                example: keep-alive
+            Keep-Alive:
+              schema:
+                type: string
+                example: timeout=72
+          content:
+            application/json:
+              schema:
+                type: object
+              examples:
+                example-0:
+                  summary: Initial Wallet
+                  value:
+                    success:
+                      message: wallet fetched
+                      data:
+                        uuid: cac53c48-3a05-44a1-a84b-8abdaff870a1
+                        address:
+                          base58: TEPjJ4zci963mxwTywNTvyDXYx9h5T2LBQ
+                          hex: 413083C6168129F89602F3AD916AA0A3B3F8F6B392
+                        createdAt: 1682205927774
+                        username: emile
+                        balances: {}
+                        resources: {}
+                        bandwidth: null
+                        energy: 0
+                    ref: c21f4130-3cbb-4968-8b6c-6720b4a9d59a
+                example-1:
+                  summary: Filled Wallet
+                  value:
+                    success:
+                      message: wallet fetched
+                      data:
+                        uuid: cac53c48-3a05-44a1-a84b-8abdaff870a1
+                        address:
+                          base58: TEPjJ4zci963mxwTywNTvyDXYx9h5T2LBQ
+                          hex: 413083C6168129F89602F3AD916AA0A3B3F8F6B392
+                        createdAt: 1682205927774
+                        username: emile
+                        balances:
+                          tokenBalance: 0
+                          tronBalance: 80000000
+                        resources:
+                          freeNetLimit: 1500
+                          TotalNetLimit: 43200000000
+                          TotalNetWeight: 84594693192
+                          TotalEnergyLimit: 50000000000000
+                          TotalEnergyWeight: 12201694231
+                        bandwidth: 1500
+                        energy: 0
+                    ref: 10992894-1675-4a73-8b8a-d3d8aa392229
+  /client/wallets/find:
+    post:
+      tags:
+        - Wallets
+      summary: Search Wallets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              example:
+                page: 1
+                pageSize: 10
+                sort:
+                  tronBalance: -1
+                  tokenBalance: -1
+                or: TEMLQjigSUXyx3VHKmh8eH1MAzCbAYBstE
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          headers:
+            Server:
+              schema:
+                type: string
+                example: Cowboy
+            Connection:
+              schema:
+                type: string
+                example: keep-alive
+            Vary:
+              schema:
+                type: string
+                example: Origin
+            Content-Type:
+              schema:
+                type: string
+                example: application/json; charset=utf-8
+            Content-Length:
+              schema:
+                type: integer
+                example: '767'
+            Date:
+              schema:
+                type: string
+                example: Sat, 03 Jun 2023 20:57:30 GMT
+            Via:
+              schema:
+                type: string
+                example: 1.1 vegur
+          content:
+            application/json:
+              schema:
+                type: object
+              examples:
+                example-0:
+                  summary: Find Wallets - Tag Equal
+                  value:
+                    success:
+                      message: find done
+                      data:
+                        - uuid: 46483305-a5be-45e2-9038-4a23e029a757
+                          address:
+                            base58: TSKug6cFM1x8bosDfDrN2fgdTL2B63wnJb
+                            hex: 41B36C48B10D68CD3F7786042924F4D17424C8B938
+                          balances:
+                            tokenBalanceRaw: 0
+                            tokenBalance: 0
+                            tronBalanceSun: 0
+                            tronBalance: 0
+                          createdAt: 1685825570408
+                          tag: main
+                          username: bitcoinly
+                        - uuid: 78917866-8362-494b-b4fd-bd58eb015241
+                          address:
+                            base58: TEMLQjigSUXyx3VHKmh8eH1MAzCbAYBstE
+                            hex: 41300FD6A0972F6E156A2D3F31C19317F87FDCEAFA
+                          balances:
+                            tokenBalanceRaw: 0
+                            tokenBalance: 0
+                            tronBalanceSun: 0
+                            tronBalance: 0
+                          createdAt: 1685825537509
+                          tag: main
+                          username: bitcoinly
+                    page: 1
+                    pageSize: 10
+                    foundCount: 2
+                    totalCount: 2
+                    nextPage: false
+                    ref: 4629a009-4ce6-4a5c-bf62-9a6d1c1e3bff
+                example-1:
+                  summary: Address OR Tag OR uuid Like
+                  value:
+                    success:
+                      message: find done
+                      data:
+                        - uuid: 78917866-8362-494b-b4fd-bd58eb015241
+                          address:
+                            base58: TEMLQjigSUXyx3VHKmh8eH1MAzCbAYBstE
+                            hex: 41300FD6A0972F6E156A2D3F31C19317F87FDCEAFA
+                          balances:
+                            tokenBalanceRaw: 0
+                            tokenBalance: 0
+                            tronBalanceSun: 0
+                            tronBalance: 0
+                          createdAt: 1685825537509
+                          tag: main
+                          username: bitcoinly
+                        - uuid: 46483305-a5be-45e2-9038-4a23e029a757
+                          address:
+                            base58: TSKug6cFM1x8bosDfDrN2fgdTL2B63wnJb
+                            hex: 41B36C48B10D68CD3F7786042924F4D17424C8B938
+                          balances:
+                            tokenBalanceRaw: 0
+                            tokenBalance: 0
+                            tronBalanceSun: 0
+                            tronBalance: 0
+                          createdAt: 1685825570408
+                          tag: main
+                          username: bitcoinly
+                    page: 1
+                    pageSize: 10
+                    foundCount: 2
+                    totalCount: 2
+                    nextPage: false
+                    ref: b32eaaf7-2359-47aa-aa25-74183dc06ab4
+  /client/wallets/send/tron/preview:
+    post:
+      tags:
+        - Withdrawals > Send TRON
+      summary: From Wallet - Fees Preview
+      description: >-
+        This API will return the TRX Transactions Fees
+
+
+        TRON Transfer involves only Bandwidth.
+
+
+        If Account Bandwith does not cover the transfer, TRX is fees is paid
+        instead.
+
+
+        **Should Input:**
+
+
+        - wallet: uuid of the selected wallet
+
+        - destination: a valid TRX recipient address
+
+        - amount: amount of SUN to transfer. ( 1 TRX = 1 000 000 SUN )
+
+
+        **It will return Fees Transfer Preview As Below:**
+
+
+        - requiredBandwidthPoints: Tx needed bandwidth
+
+        - availableBandwidthPoints: Wallet available bandwidth
+
+        - feeSUN: 0: Tx Fees needed in Sun in case of low bandwidth
+
+        - sunCostForBandwidth: the Sun Cost of a Bandwidth Unit
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              example:
+                wallet: 46483305-a5be-45e2-9038-4a23e029a757
+                destination: TTFSX6vJGAM7Ku1qCEbgM27TULRKjqBBXL
+                amount: 5000000
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          headers:
+            Server:
+              schema:
+                type: string
+                example: Cowboy
+            Connection:
+              schema:
+                type: string
+                example: keep-alive
+            Vary:
+              schema:
+                type: string
+                example: Origin
+            Content-Type:
+              schema:
+                type: string
+                example: application/json; charset=utf-8
+            Content-Length:
+              schema:
+                type: integer
+                example: '367'
+            Date:
+              schema:
+                type: string
+                example: Sat, 03 Jun 2023 21:22:16 GMT
+            Via:
+              schema:
+                type: string
+                example: 1.1 vegur
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                success:
+                  message: transfer preview
+                  data:
+                    source: TSKug6cFM1x8bosDfDrN2fgdTL2B63wnJb
+                    destination: TTFSX6vJGAM7Ku1qCEbgM27TULRKjqBBXL
+                    amount: 5000000
+                    requiredEnergy: 0
+                    availableEnergy: 0
+                    requiredBandwidthPoints: 268
+                    availableBandwidthPoints: 1500
+                    feeSUN: 0
+                    sunCostForBandwidth: 0
+                    sunCostForEnergy: 0
+                ref: 6573c14a-def4-41f6-bae8-67a90a7abdf5
+  /client/wallets/send/tron/confirm:
+    post:
+      tags:
+        - Withdrawals > Send TRON
+      summary: From Wallet - Broadcast Tx
+      description: |-
+        Basically if the Preview Fees is ok,
+
+        Confirming the Transaction will broadcast it to the Tron Network.
+
+        Transaction Object is Returned containing:
+
+        ``` json
+        {
+            "success": {
+                "message": "broadcasted txID f7d7e9f65f18f6f799c6db30f128de62747290c5ca71ecf78bc9b4a297a617eb",
+                "data": {
+                    "txID": "f7d7e9f65f18f6f799c6db30f128de62747290c5ca71ecf78bc9b4a297a617eb",
+                    "source": "TSKug6cFM1x8bosDfDrN2fgdTL2B63wnJb",
+                    "destination": "TTFSX6vJGAM7Ku1qCEbgM27TULRKjqBBXL",
+                    "amount": 5000000,
+                    "type": "TRX",
+                    "timestamp": 1685827496177,
+                    "createAt": 1685827497122,
+                    "wallet": "46483305-a5be-45e2-9038-4a23e029a757",
+                    "requiredEnergy": 0,
+                    "availableEnergy": 0,
+                    "requiredBandwidthPoints": 268,
+                    "availableBandwidthPoints": 1500,
+                    "feeSUN": 0,
+                    "sunCostForBandwidth": 0,
+                    "sunCostForEnergy": 0
+                }
+            },
+            "ref": "4e5b8b26-dc6f-467a-b5c1-887527866070"
+        }
+
+        ```
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              example:
+                wallet: 46483305-a5be-45e2-9038-4a23e029a757
+                destination: TTFSX6vJGAM7Ku1qCEbgM27TULRKjqBBXL
+                amount: 5000000
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          headers:
+            Server:
+              schema:
+                type: string
+                example: Cowboy
+            Connection:
+              schema:
+                type: string
+                example: keep-alive
+            Vary:
+              schema:
+                type: string
+                example: Origin
+            Content-Type:
+              schema:
+                type: string
+                example: application/json; charset=utf-8
+            Content-Length:
+              schema:
+                type: integer
+                example: '618'
+            Date:
+              schema:
+                type: string
+                example: Sat, 03 Jun 2023 21:24:57 GMT
+            Via:
+              schema:
+                type: string
+                example: 1.1 vegur
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                success:
+                  message: >-
+                    broadcasted txID
+                    f7d7e9f65f18f6f799c6db30f128de62747290c5ca71ecf78bc9b4a297a617eb
+                  data:
+                    txID: >-
+                      f7d7e9f65f18f6f799c6db30f128de62747290c5ca71ecf78bc9b4a297a617eb
+                    source: TSKug6cFM1x8bosDfDrN2fgdTL2B63wnJb
+                    destination: TTFSX6vJGAM7Ku1qCEbgM27TULRKjqBBXL
+                    amount: 5000000
+                    type: TRX
+                    timestamp: 1685827496177
+                    createAt: 1685827497122
+                    wallet: 46483305-a5be-45e2-9038-4a23e029a757
+                    requiredEnergy: 0
+                    availableEnergy: 0
+                    requiredBandwidthPoints: 268
+                    availableBandwidthPoints: 1500
+                    feeSUN: 0
+                    sunCostForBandwidth: 0
+                    sunCostForEnergy: 0
+                ref: 4e5b8b26-dc6f-467a-b5c1-887527866070
+  /client/wallets/send/token/preview:
+    post:
+      tags:
+        - Withdrawals > Send USDT
+      summary: From Wallet - Fees Preview
+      description: >-
+        Amount Field is the Raw Amount with Token Decimals
+
+
+        e.g. To send 5 USDT the amount to send is equals to 5 \* 10^6 = 5 000
+        000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              example:
+                wallet: 46483305-a5be-45e2-9038-4a23e029a757
+                destination: TTFSX6vJGAM7Ku1qCEbgM27TULRKjqBBXL
+                amount: 5000000
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          headers:
+            Server:
+              schema:
+                type: string
+                example: Cowboy
+            Connection:
+              schema:
+                type: string
+                example: keep-alive
+            Vary:
+              schema:
+                type: string
+                example: Origin
+            Content-Type:
+              schema:
+                type: string
+                example: application/json; charset=utf-8
+            Content-Length:
+              schema:
+                type: integer
+                example: '457'
+            Date:
+              schema:
+                type: string
+                example: Sat, 03 Jun 2023 21:31:33 GMT
+            Via:
+              schema:
+                type: string
+                example: 1.1 vegur
+          content:
+            application/json:
+              schema:
+                type: object
+              examples:
+                example-0:
+                  summary: Send Token Preview
+                  value:
+                    success:
+                      message: transfer preview
+                      data:
+                        tokenAddress: TMhkJceqwcqQFmfmcz9mS5xYhmE9qRL5sz
+                        tokenDecimals: '6'
+                        source: TSKug6cFM1x8bosDfDrN2fgdTL2B63wnJb
+                        destination: TTFSX6vJGAM7Ku1qCEbgM27TULRKjqBBXL
+                        amount: 5000000
+                        requiredEnergy: 28182
+                        availableEnergy: 0
+                        requiredBandwidthPoints: 345
+                        availableBandwidthPoints: 1500
+                        feeSUN: 11836440
+                        sunCostForBandwidth: 0
+                        sunCostForEnergy: 11836440
+                    ref: 053f7c09-c9e7-4490-8f25-c66ea4335868
+                example-1:
+                  summary: Failure - Low Balance
+                  value:
+                    error:
+                      message: Token Transfer Not Possible
+                      data:
+                        lowBalance: true
+                      tag: dffa79eb-02df-4477-9687-702344767b2a
+                    ref: e1c807f5-ddb8-4430-af3d-76a908730def
+                example-2:
+                  summary: Failure - Uncovered Fees
+                  value:
+                    error:
+                      message: no enough fee coverage
+                      data:
+                        uncoveredFees: true
+                        feeSUN: 5536440
+                        sunBalance: 1527120
+                      tag: da13e141-2d95-49b0-9b76-3721944e8def
+                    ref: 98550b98-ad26-4c1f-af4d-d50bdb40d32e
+  /client/wallets/send/token/confirm:
+    post:
+      tags:
+        - Withdrawals > Send USDT
+      summary: Send Token Confirm
+      description: |-
+        amount is the raw amount as well (USDT decimals is 6)
+
+        e.g. to send 5 USDT the amount in request is 5000000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              example:
+                wallet: cac53c48-3a05-44a1-a84b-8abdaff870a1
+                destination: TVBGrY6DwCZLgu8NZQgpfFGLy9bZhUTbDi
+                amount: 2100000
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          headers:
+            Server:
+              schema:
+                type: string
+                example: Cowboy
+            Connection:
+              schema:
+                type: string
+                example: keep-alive
+            Vary:
+              schema:
+                type: string
+                example: Origin
+            Content-Type:
+              schema:
+                type: string
+                example: application/json; charset=utf-8
+            Content-Length:
+              schema:
+                type: integer
+                example: '734'
+            Date:
+              schema:
+                type: string
+                example: Sat, 03 Jun 2023 21:32:07 GMT
+            Via:
+              schema:
+                type: string
+                example: 1.1 vegur
+          content:
+            application/json:
+              schema:
+                type: object
+              examples:
+                example-0:
+                  summary: Broacasted Tx
+                  value:
+                    success:
+                      message: >-
+                        broadcasted txID
+                        3a076b6c72bccc70dd454c589a5a5f3d66745f7e776247a4eb25ede6b689427e
+                      data:
+                        txID: >-
+                          3a076b6c72bccc70dd454c589a5a5f3d66745f7e776247a4eb25ede6b689427e
+                        source: TSKug6cFM1x8bosDfDrN2fgdTL2B63wnJb
+                        destination: TTFSX6vJGAM7Ku1qCEbgM27TULRKjqBBXL
+                        amount: 5000000
+                        type: TRC20
+                        timestamp: 1685827927196
+                        wallet: 46483305-a5be-45e2-9038-4a23e029a757
+                        requiredEnergy: 28182
+                        availableEnergy: 0
+                        requiredBandwidthPoints: 345
+                        availableBandwidthPoints: 1500
+                        feeSUN: 11836440
+                        sunCostForBandwidth: 0
+                        sunCostForEnergy: 11836440
+                        tokenAddress: TMhkJceqwcqQFmfmcz9mS5xYhmE9qRL5sz
+                        tokenDecimals: '6'
+                        createdAt: 1685827927196
+                        username: bitcoinly
+                    ref: edd1b258-4422-4a96-9ba5-d61ddcc8edbd
+                example-1:
+                  summary: Send Token Confirm
+                  value:
+                    success:
+                      message: >-
+                        broadcasted txID
+                        b77ac066f5561ae480780e74d1d088645bcd3ba5ad79ce1d9c85085271601a51
+                      data:
+                        txID: >-
+                          b77ac066f5561ae480780e74d1d088645bcd3ba5ad79ce1d9c85085271601a51
+                        source: TSKug6cFM1x8bosDfDrN2fgdTL2B63wnJb
+                        destination: TTFSX6vJGAM7Ku1qCEbgM27TULRKjqBBXL
+                        amount: 5000000
+                        type: TRC20
+                        timestamp: 1685828076593
+                        wallet: 46483305-a5be-45e2-9038-4a23e029a757
+                        requiredEnergy: 13182
+                        availableEnergy: 0
+                        requiredBandwidthPoints: 345
+                        availableBandwidthPoints: 1156
+                        feeSUN: 5536440
+                        sunCostForBandwidth: 0
+                        sunCostForEnergy: 5536440
+                        tokenAddress: TMhkJceqwcqQFmfmcz9mS5xYhmE9qRL5sz
+                        tokenDecimals: '6'
+                        createdAt: 1685828076593
+                        username: bitcoinly
+                    ref: 14d5339a-58ef-40e2-af57-99c9316ac2bf
+  /client/transactions/find:
+    post:
+      tags:
+        - Transactions
+      summary: Search Transactions
+      description: >-
+        Paging a filtering supported by wallets, send/receive address and type:
+        TRX for tron and TRC20 for USDT
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              example:
+                page: 1
+                pageSize: 10
+                or: TRX
+                wallet: 46483305-a5be-45e2-9038-4a23e029a757
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          headers:
+            Server:
+              schema:
+                type: string
+                example: Cowboy
+            Connection:
+              schema:
+                type: string
+                example: keep-alive
+            Vary:
+              schema:
+                type: string
+                example: Origin
+            Content-Type:
+              schema:
+                type: string
+                example: application/json; charset=utf-8
+            Content-Length:
+              schema:
+                type: integer
+                example: '955'
+            Date:
+              schema:
+                type: string
+                example: Sat, 03 Jun 2023 21:11:38 GMT
+            Via:
+              schema:
+                type: string
+                example: 1.1 vegur
+          content:
+            application/json:
+              schema:
+                type: object
+              examples:
+                example-0:
+                  summary: Search All Transactions
+                  value:
+                    success:
+                      message: find done
+                      data:
+                        - txRef: >-
+                            3a08557d887b2eb8666b390d97dcddea3fa8be5c63a719166ad42c41b2556b28
+                          action: received
+                          amount: '20000000'
+                          destination: TSKug6cFM1x8bosDfDrN2fgdTL2B63wnJb
+                          source: TExHDUfSjg9aWncoqzeS4jWs2To6VabGgi
+                          timestamp: 1685826624281
+                          txID: >-
+                            02f88ad0317474865fc859d8e908b09a189ebc80dfa94e202097db19267774dc
+                          type: TRC20
+                          username: bitcoinly
+                          wallet: 46483305-a5be-45e2-9038-4a23e029a757
+                        - txRef: >-
+                            297ae4203bdb639049e7ca2bce10d211bee08c1ce8fcccd8f7bbfe17b90b22a7
+                          action: received
+                          amount: 10000000
+                          destination: TSKug6cFM1x8bosDfDrN2fgdTL2B63wnJb
+                          source: TGozHDQqqswxYSe6oeiGJGSt1mrzUPFCAt
+                          timestamp: 1685826588088
+                          txID: >-
+                            44334935a7f19816172415e39bdda64f6365bc2b76946d34afdcd5bf4ed9d2c7
+                          type: TRX
+                          username: bitcoinly
+                          wallet: 46483305-a5be-45e2-9038-4a23e029a757
+                    page: 1
+                    pageSize: 10
+                    foundCount: 2
+                    totalCount: 2
+                    nextPage: false
+                    ref: 008465fa-880f-4eb6-a05b-9ac7e3c080d2
+                example-1:
+                  summary: All Wallets - Filter Tx ID
+                  value:
+                    success:
+                      message: find done
+                      data:
+                        - txRef: >-
+                            3a08557d887b2eb8666b390d97dcddea3fa8be5c63a719166ad42c41b2556b28
+                          action: received
+                          amount: '20000000'
+                          destination: TSKug6cFM1x8bosDfDrN2fgdTL2B63wnJb
+                          source: TExHDUfSjg9aWncoqzeS4jWs2To6VabGgi
+                          timestamp: 1685826624281
+                          txID: >-
+                            02f88ad0317474865fc859d8e908b09a189ebc80dfa94e202097db19267774dc
+                          type: TRC20
+                          username: bitcoinly
+                          wallet: 46483305-a5be-45e2-9038-4a23e029a757
+                    page: 1
+                    pageSize: 10
+                    foundCount: 1
+                    totalCount: 1
+                    nextPage: false
+                    ref: 012fa274-ec51-41ea-b1ce-d72aab4547ce
+                example-2:
+                  summary: All Wallets - Filter From or To Address
+                  value:
+                    success:
+                      message: find done
+                      data:
+                        - txRef: >-
+                            3a08557d887b2eb8666b390d97dcddea3fa8be5c63a719166ad42c41b2556b28
+                          action: received
+                          amount: '20000000'
+                          destination: TSKug6cFM1x8bosDfDrN2fgdTL2B63wnJb
+                          source: TExHDUfSjg9aWncoqzeS4jWs2To6VabGgi
+                          timestamp: 1685826624281
+                          txID: >-
+                            02f88ad0317474865fc859d8e908b09a189ebc80dfa94e202097db19267774dc
+                          type: TRC20
+                          username: bitcoinly
+                          wallet: 46483305-a5be-45e2-9038-4a23e029a757
+                    page: 1
+                    pageSize: 10
+                    foundCount: 1
+                    totalCount: 1
+                    nextPage: false
+                    ref: 68984db4-6fb0-48f7-9913-c11dbcb9d7eb
+                example-3:
+                  summary: By Wallet - Filter Token Transfers
+                  value:
+                    success:
+                      message: find done
+                      data:
+                        - txRef: >-
+                            3a08557d887b2eb8666b390d97dcddea3fa8be5c63a719166ad42c41b2556b28
+                          action: received
+                          amount: '20000000'
+                          destination: TSKug6cFM1x8bosDfDrN2fgdTL2B63wnJb
+                          source: TExHDUfSjg9aWncoqzeS4jWs2To6VabGgi
+                          timestamp: 1685826624281
+                          txID: >-
+                            02f88ad0317474865fc859d8e908b09a189ebc80dfa94e202097db19267774dc
+                          type: TRC20
+                          username: bitcoinly
+                          wallet: 46483305-a5be-45e2-9038-4a23e029a757
+                    page: 1
+                    pageSize: 10
+                    foundCount: 1
+                    totalCount: 1
+                    nextPage: false
+                    ref: 4b7eb9d8-22ac-49ee-8b98-bf5784ac00b0
+                example-4:
+                  summary: By Wallet - Filter TRON Transfers
+                  value:
+                    success:
+                      message: find done
+                      data:
+                        - txRef: >-
+                            297ae4203bdb639049e7ca2bce10d211bee08c1ce8fcccd8f7bbfe17b90b22a7
+                          action: received
+                          amount: 10000000
+                          destination: TSKug6cFM1x8bosDfDrN2fgdTL2B63wnJb
+                          source: TGozHDQqqswxYSe6oeiGJGSt1mrzUPFCAt
+                          timestamp: 1685826588088
+                          txID: >-
+                            44334935a7f19816172415e39bdda64f6365bc2b76946d34afdcd5bf4ed9d2c7
+                          type: TRX
+                          username: bitcoinly
+                          wallet: 46483305-a5be-45e2-9038-4a23e029a757
+                    page: 1
+                    pageSize: 10
+                    foundCount: 1
+                    totalCount: 1
+                    nextPage: false
+                    ref: b520a1b8-8b10-4926-ba7c-5ec87aa719a2
